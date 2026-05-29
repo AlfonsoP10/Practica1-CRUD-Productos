@@ -1,12 +1,14 @@
 <template>
   <div>
-    <h1>CRUD de Productos</h1>
+    <h1>Productos</h1>
 
-    <ProductoForm
-      :productoEditar="productoSeleccionado"
-      @productoGuardado="productoGuardado"
-      @cancelarEdicion="cancelarEdicion"
-    />
+   <!--
+<ProductoForm
+  :productoEditar="productoSeleccionado"
+  @productoGuardado="productoGuardado"
+  @cancelarEdicion="cancelarEdicion"
+/>
+-->
 
     <p v-if="mensaje" style="color: green">
       {{ mensaje }}

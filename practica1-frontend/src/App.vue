@@ -1,27 +1,37 @@
 <template>
-  <main class="contenedor">
-    <ProductosList />
-  </main>
+  <div>
+    <nav class="navbar">
+      <router-link to="/">Inicio</router-link>
+      <router-link to="/catalogo">Catálogo</router-link>
+      <router-link to="/admin">Admin</router-link>
+      <router-link to="/login">Login</router-link>
+    </nav>
+
+    <main class="contenido">
+      <router-view />
+    </main>
+  </div>
 </template>
 
-<script setup>
-import ProductosList from './components/ProductosList.vue'
-</script>
-
-<style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f4f6f8;
-  color: #222;
+<style scoped>
+.navbar {
+  background: #222;
+  padding: 15px;
+  display: flex;
+  gap: 15px;
 }
 
-.contenedor {
-  width: 90%;
-  max-width: 1000px;
-  margin: 30px auto;
-  background: white;
+.navbar a {
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.navbar a.router-link-active {
+  color: #42b883;
+}
+
+.contenido {
   padding: 25px;
-  border-radius: 10px;
 }
 </style>
