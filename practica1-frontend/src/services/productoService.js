@@ -5,6 +5,19 @@ const api = axios.create({
 })
 
 export const getProductos = () => api.get('/productos')
-export const createProducto = (data) => api.post('/productos', data)
-export const updateProducto = (id, data) => api.put(`/productos/${id}`, data)
+
+export const createProducto = (data) =>
+  api.post('/productos', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+
+export const updateProducto = (id, data) =>
+  api.post(`/productos/${id}?_method=PUT`, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+
 export const deleteProducto = (id) => api.delete(`/productos/${id}`)

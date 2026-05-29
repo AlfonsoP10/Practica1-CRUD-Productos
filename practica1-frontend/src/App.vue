@@ -1,3 +1,7 @@
+<script setup>
+import CartIcon from '@/components/CartIcon.vue'
+</script>
+
 <template>
   <div>
     <nav class="navbar">
@@ -5,6 +9,8 @@
       <router-link to="/catalogo">Catálogo</router-link>
       <router-link to="/admin">Admin</router-link>
       <router-link to="/login">Login</router-link>
+
+      <CartIcon />
     </nav>
 
     <main class="contenido">
@@ -19,6 +25,7 @@
   padding: 15px;
   display: flex;
   gap: 15px;
+  align-items: center;
 }
 
 .navbar a {

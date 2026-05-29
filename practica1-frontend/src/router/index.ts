@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import CartView from '@/views/CartView.vue'
 
 const routes = [
   {
@@ -46,6 +47,11 @@ const routes = [
     path: '/:pathMatch(.*)*',
     redirect: '/404',
   },
+  {
+  path: '/carrito',
+  name: 'carrito',
+  component: CartView
+},
 ]
 
 const router = createRouter({
