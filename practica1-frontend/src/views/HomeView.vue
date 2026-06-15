@@ -65,7 +65,7 @@ const productos = ref([])
 const cargarProductos = async () => {
   try {
     const respuesta = await getProductos()
-    productos.value = respuesta.data
+    productos.value = respuesta.data.data || []
   } catch (error) {
     console.error('Error al recuperar destacados:', error)
   }

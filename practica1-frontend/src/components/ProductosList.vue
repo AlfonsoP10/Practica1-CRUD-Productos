@@ -2,13 +2,14 @@
   <div>
     <h1>Productos</h1>
 
-   <!--
-<ProductoForm
-  :productoEditar="productoSeleccionado"
-  @productoGuardado="productoGuardado"
-  @cancelarEdicion="cancelarEdicion"
-/>
--->
+
+
+    <ProductoForm
+      v-if="mostrarFormulario"
+      :productoEditar="productoSeleccionado"
+      @productoGuardado="productoGuardado"
+      @cancelarEdicion="cancelarEdicion"
+    />
 
     <p v-if="mensaje" style="color: green">
       {{ mensaje }}
@@ -26,6 +27,7 @@
           <th>Descripción</th>
           <th>Precio</th>
           <th>Stock</th>
+          <th>Categoría</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -37,6 +39,9 @@
           <td>{{ producto.descripcion }}</td>
           <td>${{ producto.precio }}</td>
           <td>{{ producto.stock }}</td>
+          <td>
+            {{ producto.categoria ? producto.categoria.nombre : 'Sin categoría' }}
+          </td>
           <td>
             <button @click="editarProducto(producto)">
               Editar
@@ -59,26 +64,36 @@ import { getProductos, deleteProducto } from '../services/productoService'
 
 const productos = ref([])
 const productoSeleccionado = ref(null)
+const mostrarFormulario = ref(false)
 const mensaje = ref('')
 const error = ref('')
 
 const cargarProductos = async () => {
   try {
     const respuesta = await getProductos()
-    productos.value = respuesta.data
+    productos.value = respuesta.data.data || []
   } catch (e) {
     error.value = 'Error al cargar productos'
   }
 }
 
+const abrirFormularioAgregar = () => {
+  productoSeleccionado.value = null
+  mostrarFormulario.value = true
+  mensaje.value = ''
+  error.value = ''
+}
+
 const editarProducto = (producto) => {
   productoSeleccionado.value = producto
+  mostrarFormulario.value = true
   mensaje.value = ''
   error.value = ''
 }
 
 const productoGuardado = async () => {
   productoSeleccionado.value = null
+  mostrarFormulario.value = false
   mensaje.value = 'Producto guardado correctamente'
   error.value = ''
   await cargarProductos()
@@ -86,6 +101,7 @@ const productoGuardado = async () => {
 
 const cancelarEdicion = () => {
   productoSeleccionado.value = null
+  mostrarFormulario.value = false
 }
 
 const eliminarProducto = async (id) => {
@@ -106,9 +122,18 @@ onMounted(() => {
   cargarProductos()
 })
 </script>
+
 <style scoped>
 h1 {
   text-align: center;
+}
+
+.btn-agregar {
+  margin-bottom: 15px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
 }
 
 table {

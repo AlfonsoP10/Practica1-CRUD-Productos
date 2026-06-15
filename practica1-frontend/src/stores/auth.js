@@ -1,49 +1,86 @@
 import { defineStore } from 'pinia'
+import axios from '@/plugins/axios'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    token: localStorage.getItem('token'),
-    user: JSON.parse(localStorage.getItem('user')) || null,
+    token: localStorage.getItem('token') || null,
+    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    permisos: JSON.parse(localStorage.getItem('permisos') || 'null') || {
+      crear: false,
+      editar: false,
+      eliminar: false,
+    },
   }),
 
   getters: {
     isAuthenticated: (state) => !!state.token,
+    isAdmin: (state) => state.user?.rol === 'admin',
   },
 
   actions: {
     async login(email, password) {
-      // Login simulado para la práctica
-      if (email === 'admin@test.com' && password === '123456') {
-        this.token = 'token-prueba'
+      const { data } = await axios.post('/login', {
+        email,
+        password,
+      })
 
-        this.user = {
-          name: 'Administrador',
-          email: email,
-        }
+      this.token = data.token
+      this.user = data.user
 
-        localStorage.setItem('token', this.token)
-        localStorage.setItem('user', JSON.stringify(this.user))
+      localStorage.setItem('token', this.token)
+      localStorage.setItem('user', JSON.stringify(this.user))
 
-        return true
-      }
+      await this.fetchUser()
 
-      throw new Error('Credenciales incorrectas')
+      return true
     },
 
     async fetchUser() {
-      const userGuardado = localStorage.getItem('user')
+      if (!this.token) return
 
-      if (userGuardado) {
-        this.user = JSON.parse(userGuardado)
+      try {
+        const { data } = await axios.get('/me')
+
+        this.user = {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          rol: data.rol,
+        }
+
+        this.permisos = data.permisos || {
+          crear: false,
+          editar: false,
+          eliminar: false,
+        }
+
+        localStorage.setItem('user', JSON.stringify(this.user))
+        localStorage.setItem('permisos', JSON.stringify(this.permisos))
+      } catch (error) {
+        this.logout()
       }
     },
 
-    logout() {
+    async logout() {
+      try {
+        if (this.token) {
+          await axios.post('/logout')
+        }
+      } catch (error) {
+        console.log('Sesión cerrada o token inválido')
+      }
+
       this.token = null
       this.user = null
+      this.permisos = {
+        crear: false,
+        editar: false,
+        eliminar: false,
+      }
 
       localStorage.removeItem('token')
       localStorage.removeItem('user')
+      localStorage.removeItem('permisos')
     },
   },
 })

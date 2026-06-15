@@ -1,5 +1,12 @@
 <script setup>
 import CartIcon from '@/components/CartIcon.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
+
+const cerrarSesion = async () => {
+  await auth.logout()
+}
 </script>
 
 <template>
@@ -7,8 +14,35 @@ import CartIcon from '@/components/CartIcon.vue'
     <nav class="navbar">
       <router-link to="/">Inicio</router-link>
       <router-link to="/catalogo">Catálogo</router-link>
-      <router-link to="/admin">Admin</router-link>
-      <router-link to="/login">Login</router-link>
+
+     <router-link
+      v-if="auth.isAdmin"
+      to="/admin/productos"
+    >
+      Admin
+    </router-link>
+
+      <router-link
+        v-if="!auth.isAuthenticated"
+        to="/login"
+      >
+        Login
+      </router-link>
+
+      <span
+        v-else
+        class="usuario"
+      >
+        {{ auth.user?.name }} ({{ auth.user?.rol }})
+      </span>
+
+      <button
+        v-if="auth.isAuthenticated"
+        class="btn-logout"
+        @click="cerrarSesion"
+      >
+        Salir
+      </button>
 
       <CartIcon />
     </nav>
@@ -36,6 +70,20 @@ import CartIcon from '@/components/CartIcon.vue'
 
 .navbar a.router-link-active {
   color: #42b883;
+}
+
+.usuario {
+  color: #facc15;
+  font-weight: bold;
+}
+
+.btn-logout {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
 .contenido {

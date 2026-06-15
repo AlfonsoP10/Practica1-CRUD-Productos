@@ -1,38 +1,65 @@
 <template>
   <form @submit.prevent="guardarProducto">
-    <h2>{{ productoEditar ? 'Editar Producto' : 'Agregar Producto' }}</h2>
+    <h2>Añadir Producto</h2>
 
-    <p v-if="mensaje" class="mensaje">
-      {{ mensaje }}
-    </p>
+    <p v-if="mensaje" class="mensaje">{{ mensaje }}</p>
+    <p v-if="error" class="error">{{ error }}</p>
 
-    <p v-if="error" class="error">
-      {{ error }}
-    </p>
+    <InputField
+      label="Nombre"
+      name="nombre"
+      v-model="nombre"
+      :error="errors.nombre || erroresServidor.nombre?.[0]"
+    />
+
+    <InputField
+      label="Descripción"
+      name="descripcion"
+      v-model="descripcion"
+      :error="errors.descripcion || erroresServidor.descripcion?.[0]"
+    />
+
+    <InputField
+      label="Precio"
+      name="precio"
+      type="number"
+      v-model="precio"
+      :error="errors.precio || erroresServidor.precio?.[0]"
+    />
+
+    <InputField
+      label="Stock"
+      name="stock"
+      type="number"
+      v-model="stock"
+      :error="errors.stock || erroresServidor.stock?.[0]"
+    />
 
     <div>
-      <label>Nombre:</label>
-      <input v-model="form.nombre" type="text" required>
-    </div>
+      <label>Categoría:</label>
+      <select v-model="categoria_id">
+        <option value="">Sin categoría</option>
+        <option
+          v-for="cat in categorias"
+          :key="cat.id"
+          :value="cat.id"
+        >
+          {{ cat.nombre }}
+        </option>
+      </select>
 
-    <div>
-      <label>Descripción:</label>
-      <input v-model="form.descripcion" type="text">
-    </div>
-
-    <div>
-      <label>Precio:</label>
-      <input v-model="form.precio" type="number" step="0.01" required>
-    </div>
-
-    <div>
-      <label>Stock:</label>
-      <input v-model="form.stock" type="number" required>
+      <span v-if="erroresServidor.categoria_id" class="error-msg">
+        {{ erroresServidor.categoria_id[0] }}
+      </span>
     </div>
 
     <div>
       <label>Imagen:</label>
       <input type="file" accept="image/*" @change="onImageChange">
+
+      <span v-if="erroresServidor.imagen" class="error-msg">
+        {{ erroresServidor.imagen[0] }}
+      </span>
     </div>
 
     <div v-if="preview">
@@ -41,58 +68,56 @@
     </div>
 
     <button type="submit" :disabled="cargando">
-      {{ cargando ? 'Guardando...' : productoEditar ? 'Actualizar' : 'Guardar' }}
-    </button>
-
-    <button v-if="productoEditar" type="button" @click="cancelar">
-      Cancelar
+      {{ cargando ? 'Guardando...' : 'Guardar' }}
     </button>
   </form>
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
-import { createProducto, updateProducto } from '../services/productoService'
+import axios from 'axios'
+import { onMounted, ref } from 'vue'
+import { useForm, useField } from 'vee-validate'
+import { productoSchema } from '@/schemas/productoSchema'
+import InputField from '@/components/InputField.vue'
+import { createProducto } from '../services/productoService'
 
-const props = defineProps({
-  productoEditar: {
-    type: Object,
-    default: null,
-  },
-})
+const emit = defineEmits(['productoGuardado', 'productoCreado'])
 
-const emit = defineEmits(['productoGuardado', 'cancelarEdicion'])
-
-const form = reactive({
-  nombre: '',
-  descripcion: '',
-  precio: '',
-  stock: '',
-})
-
+const categorias = ref([])
 const imagen = ref(null)
 const preview = ref(null)
 const cargando = ref(false)
 const mensaje = ref('')
 const error = ref('')
+const erroresServidor = ref({})
 
-watch(
-  () => props.productoEditar,
-  (producto) => {
-    if (producto) {
-      form.nombre = producto.nombre
-      form.descripcion = producto.descripcion
-      form.precio = producto.precio
-      form.stock = producto.stock
-      preview.value = producto.imagen_url || null
-      imagen.value = null
-    }
-  }
-)
+const { handleSubmit, errors, resetForm } = useForm({
+  validationSchema: productoSchema,
+  initialValues: {
+    nombre: '',
+    descripcion: '',
+    precio: '',
+    stock: '',
+    categoria_id: '',
+  },
+})
+
+const { value: nombre } = useField('nombre')
+const { value: descripcion } = useField('descripcion')
+const { value: precio } = useField('precio')
+const { value: stock } = useField('stock')
+const { value: categoria_id } = useField('categoria_id')
+
+const cargarCategorias = async () => {
+  try {
+    const respuesta = await axios.get('http://localhost:8000/api/categorias')
+    categorias.value = respuesta.data.data
+  } catch (e) {
+  mostrarError(e.response?.data?.message || 'Error al crear producto')  }
+}
 
 const mostrarMensaje = (texto) => {
   mensaje.value = texto
-
   setTimeout(() => {
     mensaje.value = ''
   }, 3000)
@@ -100,7 +125,6 @@ const mostrarMensaje = (texto) => {
 
 const mostrarError = (texto) => {
   error.value = texto
-
   setTimeout(() => {
     error.value = ''
   }, 3000)
@@ -108,7 +132,6 @@ const mostrarError = (texto) => {
 
 const onImageChange = (e) => {
   const file = e.target.files[0]
-
   if (!file) return
 
   if (file.size > 2 * 1024 * 1024) {
@@ -121,21 +144,32 @@ const onImageChange = (e) => {
 }
 
 const limpiarFormulario = () => {
-  form.nombre = ''
-  form.descripcion = ''
-  form.precio = ''
-  form.stock = ''
+  resetForm({
+    values: {
+      nombre: '',
+      descripcion: '',
+      precio: '',
+      stock: '',
+      categoria_id: '',
+    },
+  })
+
   imagen.value = null
   preview.value = null
+  erroresServidor.value = {}
 }
 
-const crearFormData = () => {
+const crearFormData = (values) => {
   const fd = new FormData()
 
-  fd.append('nombre', form.nombre)
-  fd.append('descripcion', form.descripcion || '')
-  fd.append('precio', form.precio)
-  fd.append('stock', form.stock)
+  fd.append('nombre', values.nombre)
+  fd.append('descripcion', values.descripcion || '')
+  fd.append('precio', values.precio)
+  fd.append('stock', values.stock)
+
+  if (values.categoria_id) {
+    fd.append('categoria_id', values.categoria_id)
+  }
 
   if (imagen.value) {
     fd.append('imagen', imagen.value)
@@ -144,61 +178,38 @@ const crearFormData = () => {
   return fd
 }
 
-const validarFormulario = () => {
-  if (!form.nombre || !form.precio || !form.stock) {
-    mostrarError('Completa los campos obligatorios')
-    return false
-  }
-
-  if (Number(form.precio) < 0) {
-    mostrarError('El precio no puede ser negativo')
-    return false
-  }
-
-  if (Number(form.stock) < 0) {
-    mostrarError('El stock no puede ser negativo')
-    return false
-  }
-
-  if (imagen.value && imagen.value.size > 2 * 1024 * 1024) {
-    mostrarError('La imagen no debe pesar más de 2MB')
-    return false
-  }
-
-  return true
-}
-
-const guardarProducto = async () => {
-  if (!validarFormulario()) return
-
+const guardarProducto = handleSubmit(async (values) => {
   try {
     cargando.value = true
     error.value = ''
+    erroresServidor.value = {}
 
-    const fd = crearFormData()
+    const fd = crearFormData(values)
 
-    if (props.productoEditar) {
-      await updateProducto(props.productoEditar.id, fd)
-      mostrarMensaje('Producto actualizado correctamente')
-    } else {
-      await createProducto(fd)
-      mostrarMensaje('Producto creado correctamente')
-    }
+    await createProducto(fd)
 
+    mostrarMensaje('Producto creado correctamente')
     limpiarFormulario()
+
     emit('productoGuardado')
+    emit('productoCreado')
   } catch (e) {
     console.error(e)
-    mostrarError('Error al guardar producto')
+
+    if (e.response?.status === 422) {
+      erroresServidor.value = e.response.data.errors
+      return
+    }
+
+    mostrarError('Error al crear producto')
   } finally {
     cargando.value = false
   }
-}
+})
 
-const cancelar = () => {
-  limpiarFormulario()
-  emit('cancelarEdicion')
-}
+onMounted(() => {
+  cargarCategorias()
+})
 </script>
 
 <style scoped>
@@ -213,7 +224,7 @@ div {
   margin-bottom: 10px;
 }
 
-input {
+select {
   width: 100%;
   padding: 7px;
   box-sizing: border-box;
@@ -241,8 +252,10 @@ button:disabled {
   font-weight: bold;
 }
 
-.error {
+.error,
+.error-msg {
   color: red;
   font-weight: bold;
+  font-size: 14px;
 }
 </style>

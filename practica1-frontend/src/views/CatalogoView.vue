@@ -2,15 +2,7 @@
   <div class="catalogo-container">
     <h1 class="titulo-pagina">Catálogo de Productos</h1>
 
-    <div class="buscador-wrapper">
-      <span class="lupa-icono">🔍</span>
-      <input
-        v-model="busqueda"
-        type="text"
-        placeholder="Buscar producto por nombre..."
-        class="buscador"
-      >
-    </div>
+    <FiltrosPanel :filtros="filtros" />
 
     <div v-if="cargando" class="estado-mensaje cargando">
       <div class="spinner"></div>
@@ -23,7 +15,7 @@
 
     <div v-if="!cargando && !error" class="grid-productos">
       <div
-        v-for="producto in productosPaginados"
+        v-for="producto in resultado.data"
         :key="producto.id"
         class="producto-card"
       >
@@ -40,9 +32,18 @@
         </div>
 
         <div class="card-cuerpo">
-          <h2 class="producto-titulo" :title="producto.nombre">{{ producto.nombre }}</h2>
-          <p class="producto-descripcion">{{ producto.descripcion }}</p>
-          
+          <h2 class="producto-titulo" :title="producto.nombre">
+            {{ producto.nombre }}
+          </h2>
+
+          <p class="categoria-texto" v-if="producto.categoria">
+            {{ producto.categoria.nombre }}
+          </p>
+
+          <p class="producto-descripcion">
+            {{ producto.descripcion }}
+          </p>
+
           <div class="meta-info">
             <span class="precio">${{ Number(producto.precio).toFixed(2) }}</span>
             <span class="stock" :class="{ 'bajo-stock': producto.stock <= 5 }">
@@ -56,8 +57,8 @@
             Ver detalle
           </router-link>
 
-          <button 
-            @click="carrito.agregar(producto)" 
+          <button
+            @click="carrito.agregar(producto)"
             class="btn-agregar"
             :class="{ 'en-carrito': carrito.cantidadDeProducto(producto.id) > 0 }"
           >
@@ -72,87 +73,99 @@
       </div>
     </div>
 
-    <div v-if="totalPaginas > 1 && !cargando" class="paginacion-container">
-      <button
-        :disabled="paginaActual === 1"
-        @click="paginaActual--"
-        class="btn-paginacion"
-      >
-        &larr; Anterior
-      </button>
+    <p v-if="!cargando && !error && resultado.data.length === 0" class="estado-mensaje">
+      No se encontraron productos con esos filtros.
+    </p>
 
-      <span class="info-paginas">
-        Página <strong>{{ paginaActual }}</strong> de {{ totalPaginas }}
-      </span>
-
-      <button
-        :disabled="paginaActual === totalPaginas"
-        @click="paginaActual++"
-        class="btn-paginacion"
-      >
-        Siguiente &rarr;
-      </button>
-    </div>
+    <PaginacionNav
+      :meta="metaPaginacion"
+      @cambio-pagina="cambiarPagina"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
-import { getProductos } from '@/services/productoService'
+import axios from 'axios'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useCarritoStore } from '@/stores/carrito'
+import { useFiltros } from '@/composables/useFiltros'
+import FiltrosPanel from '@/components/FiltrosPanel.vue'
+import PaginacionNav from '@/components/PaginacionNav.vue'
 
 const carrito = useCarritoStore()
+const route = useRoute()
+const { filtros } = useFiltros()
 
-const productos = ref([])
-const busqueda = ref('')
+const resultado = ref({
+  data: [],
+})
+
 const cargando = ref(false)
 const error = ref('')
 
-const paginaActual = ref(1)
-const productosPorPagina = 8 // Cambiado a 8 para que arme filas simétricas de 4 o 2 columnas
+const metaPaginacion = computed(() => ({
+  current_page: resultado.value.current_page || 1,
+  last_page: resultado.value.last_page || 1,
+  per_page: resultado.value.per_page || 15,
+  total: resultado.value.total || 0,
+}))
+
+const obtenerOrden = () => {
+  if (filtros.orden === 'precio-asc') {
+    return { orden: 'precio', dir: 'asc' }
+  }
+
+  if (filtros.orden === 'precio-desc') {
+    return { orden: 'precio', dir: 'desc' }
+  }
+
+  return { orden: 'nombre', dir: 'asc' }
+}
 
 const cargarProductos = async () => {
   try {
     cargando.value = true
     error.value = ''
 
-    const respuesta = await getProductos()
-    productos.value = respuesta.data
+    const orden = obtenerOrden()
+
+   const respuesta = await axios.get('http://localhost:8000/api/v1/productos', {
+      params: {
+        busqueda: filtros.busqueda,
+        categoria_id: filtros.categoria_id,
+        precio_min: filtros.precio_min,
+        precio_max: filtros.precio_max,
+        page: filtros.pagina,
+        orden: orden.orden,
+        dir: orden.dir,
+        por_pagina: 15,
+      },
+    })
+
+    resultado.value = respuesta.data
   } catch (e) {
-    error.value = 'Error al cargar los productos. Por favor, reintenta más tarde.'
+    console.error(e)
+    error.value = 'Error al cargar los productos.'
   } finally {
     cargando.value = false
   }
 }
 
-const productosFiltrados = computed(() =>
-  productos.value.filter((p) =>
-    p.nombre.toLowerCase().includes(busqueda.value.toLowerCase())
-  )
+const cambiarPagina = (pagina) => {
+  filtros.pagina = pagina
+}
+
+watch(
+  () => route.query,
+  () => {
+    cargarProductos()
+  },
+  { immediate: true }
 )
-
-const totalPaginas = computed(() =>
-  Math.ceil(productosFiltrados.value.length / productosPorPagina)
-)
-
-const productosPaginados = computed(() => {
-  const inicio = (paginaActual.value - 1) * productosPorPagina
-  const fin = inicio + productosPorPagina
-
-  return productosFiltrados.value.slice(inicio, fin)
-})
-
-watch(busqueda, () => {
-  paginaActual.value = 1
-})
-
-onMounted(() => {
-  cargarProductos()
-})
 </script>
 
 <style scoped>
-/* Contenedor General */
 .catalogo-container {
   max-width: 1200px;
   margin: 40px auto;
@@ -168,47 +181,12 @@ onMounted(() => {
   color: #111827;
 }
 
-/* Buscador Estilizado */
-.buscador-wrapper {
-  position: relative;
-  max-width: 450px;
-  margin-bottom: 32px;
-}
-
-.lupa-icono {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 16px;
-  color: #9ca3af;
-}
-
-.buscador {
-  width: 100%;
-  padding: 12px 16px 12px 42px;
-  font-size: 15px;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background-color: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
-  outline: none;
-}
-
-.buscador:focus {
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-}
-
-/* Grid de Tarjetas */
 .grid-productos {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 24px;
 }
 
-/* Tarjeta del Producto */
 .producto-card {
   background: #ffffff;
   border: 1px solid #f3f4f6;
@@ -225,7 +203,6 @@ onMounted(() => {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-/* Imagen de producto */
 .imagen-contenedor {
   width: 100%;
   height: 180px;
@@ -250,41 +227,52 @@ onMounted(() => {
   font-weight: 500;
 }
 
-/* Cuerpo de la Tarjeta */
 .card-cuerpo {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  flex-grow: 1; /* Empuja los botones hacia el fondo */
+  flex-grow: 1;
 }
 
 .producto-titulo {
   font-size: 17px;
   font-weight: 600;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   color: #1f2937;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* Corta textos excesivamente largos con puntos suspensivos */
+  text-overflow: ellipsis;
+}
+
+.categoria-texto {
+  font-size: 12px;
+  color: #4f46e5;
+  background: #f5f3ff;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  margin: 0 0 10px 0;
+  font-weight: 600;
 }
 
 .producto-descripcion {
   font-size: 14px;
   color: #6b7280;
   margin: 0 0 16px 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2; /* Muestra máximo dos líneas de descripción */
-  -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.4;
-  height: 2.8em; /* Mantiene la misma altura de caja fija */
+
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .meta-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: auto; /* Alínea la info de precios abajo */
+  margin-top: auto;
   padding-top: 8px;
 }
 
@@ -308,7 +296,6 @@ onMounted(() => {
   color: #dc2626;
 }
 
-/* Acciones Inferiores (Botones) */
 .card-acciones {
   padding: 0 16px 16px 16px;
   display: flex;
@@ -350,7 +337,6 @@ onMounted(() => {
   background: #4338ca;
 }
 
-/* Botón cuando ya está en el carrito */
 .btn-agregar.en-carrito {
   background: #10b981;
 }
@@ -359,46 +345,6 @@ onMounted(() => {
   background: #059669;
 }
 
-/* Paginación */
-.paginacion-container {
-  margin-top: 40px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-}
-
-.btn-paginacion {
-  border: 1px solid #e5e7eb;
-  background: white;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 8px;
-  cursor: pointer;
-  color: #374151;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s;
-}
-
-.btn-paginacion:hover:not(:disabled) {
-  border-color: #4f46e5;
-  color: #4f46e5;
-  background: #f9fafb;
-}
-
-.btn-paginacion:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: #f3f4f6;
-}
-
-.info-paginas {
-  font-size: 14px;
-  color: #6b7280;
-}
-
-/* Estados de carga */
 .estado-mensaje {
   text-align: center;
   padding: 40px;

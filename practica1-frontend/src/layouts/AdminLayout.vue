@@ -8,31 +8,41 @@
       </p>
 
       <nav>
-        <router-link to="/admin">Dashboard</router-link>
-        <router-link to="/admin/productos">Productos</router-link>
-        <router-link to="/admin/nuevo">Nuevo Producto</router-link>
-      </nav>
+        <router-link to="/admin/productos">
+          Productos
+        </router-link>
 
-      <button @click="cerrarSesion">Cerrar sesión</button>
+        <router-link to="/admin/nuevo">
+          Nuevo Producto
+        </router-link>
+      </nav>
     </aside>
 
     <section class="admin-content">
+      <div
+        style="
+          background:red;
+          color:white;
+          padding:10px;
+          margin-bottom:15px;
+          border-radius:6px;
+        "
+      >
+        PRUEBA ADMIN LAYOUT
+      </div>
+
+      <AdminNotificaciones />
+
       <router-view />
     </section>
   </div>
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import AdminNotificaciones from '@/components/AdminNotificaciones.vue'
 
-const router = useRouter()
 const auth = useAuthStore()
-
-const cerrarSesion = () => {
-  auth.logout()
-  router.push('/login')
-}
 </script>
 
 <style scoped>

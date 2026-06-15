@@ -86,7 +86,7 @@ const error = ref('')
 const cargarProducto = async () => {
   try {
     error.value = ''
-    const respuesta = await axios.get(`http://localhost:8000/api/productos/${props.id}`)
+    const respuesta = await axios.get(`http://localhost:8000/api/v1/productos/${props.id}`)
     producto.value = respuesta.data
   } catch (e) {
     error.value = 'No se pudo conectar con el servidor. Asegúrate de que el backend en Laravel esté corriendo correctamente.'
